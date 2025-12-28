@@ -69,6 +69,11 @@ npm run dev
 - Backend: http://localhost:5000
 - Frontend: http://localhost:5173
 
+### Render Free Plan Tip
+
+- If deploying on Render Free, the server may sleep when idle.
+- Use the "Wake Server" button in the app header to ping the backend and wake it before sending messages.
+
 ## Database Setup (Migrations/Seed)
 
 - No migrations required; Mongoose creates collections on first write.
