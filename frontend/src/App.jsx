@@ -24,18 +24,21 @@ function App() {
   // Ref to track scroll height to maintain position when loading old messages
   const scrollHeightRef = useRef(0);
 
-  // Parse backend error payloads into a friendly string
+  // Parse backend error payloads into a friendly, detailed string
   const parseErrorResponse = async (response) => {
+    const statusInfo = `${response.status} ${response.statusText || ""}`.trim();
+
     if (response.status === 429)
-      return "Too many requests. Please wait a moment.";
+      return `${statusInfo}: Too many requests. Please wait a moment.`;
 
     try {
       const data = await response.json();
-      if (data?.error) return data.error;
+      if (data?.error) return `${statusInfo}: ${data.error}`;
     } catch (_) {
       // ignore JSON parsing issues and fall through
     }
-    return "Server error. Please try again.";
+
+    return `${statusInfo || "Server error"}: Please try again.`;
   };
 
   // Fetch Messages Function
@@ -69,7 +72,8 @@ function App() {
       return { newMessages: [], hasMore: false };
     } catch (error) {
       console.error("Error loading history:", error);
-      setErrorBanner("Unable to load history. Please try again.");
+      const detail = error instanceof Error ? error.message : "Unknown error";
+      setErrorBanner(`Unable to load history. ${detail}`);
       return { newMessages: [], hasMore: false };
     }
   };
@@ -193,7 +197,8 @@ function App() {
       };
       setMessages((prev) => [...prev, botMessage]);
     } catch (error) {
-      const errorText = "Unable to reach server. Please check your connection.";
+      const detail = error instanceof Error ? error.message : "Unknown error";
+      const errorText = `Unable to reach server. ${detail}`;
       setErrorBanner(errorText);
       const errorMessage = {
         id: Date.now() + 1,
