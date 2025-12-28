@@ -19,6 +19,7 @@ A full-stack AI-powered chat app with automatic conversation persistence using I
 - Node.js v16+
 - MongoDB (local `mongod` or Atlas URI)
 - Gemini API key (https://makersuite.google.com/app/apikey)
+- You can use any model which you apikey support as my apikey support gemini-2.5-flash-lite just change the model on backend env
 
 ### 1) Clone
 
@@ -140,7 +141,7 @@ Layering (backend)
 
 Design decisions
 
-- IP-based identity to avoid auth while preserving continuity
+- Session base identity to avoid auth while preserving continuity
 - Paginated history (`before` cursor) to control token usage
 - Limit context to last 20 messages for cost/perf balance
 - Service wrapper around Gemini SDK to keep routes thin

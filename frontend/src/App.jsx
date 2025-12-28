@@ -414,10 +414,20 @@ function App() {
             <input
               type="text"
               value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
+              onChange={(e) => e.target.value.length < 1000 && setInputValue(e.target.value)}
               placeholder={serverStatus === "awake" ? "Type your question..." : "Waiting for server..."}
               disabled={isLoading || serverStatus !== "awake"}
+
             />
+              <div className="char-count">
+                {inputValue.length}/1000
+                {inputValue.length < 1000 && (
+                  <span className="char-remaining">
+                    {1000 - inputValue.length} characters remaining
+                  </span>
+            )}
+              </div>
+            
             <button
               type="submit"
               disabled={isLoading || serverStatus !== "awake" || !inputValue.trim()}
