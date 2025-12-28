@@ -12,6 +12,7 @@ function App() {
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [errorBanner, setErrorBanner] = useState("");
 
   // History loading states
   const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -22,6 +23,20 @@ function App() {
 
   // Ref to track scroll height to maintain position when loading old messages
   const scrollHeightRef = useRef(0);
+
+  // Parse backend error payloads into a friendly string
+  const parseErrorResponse = async (response) => {
+    if (response.status === 429)
+      return "Too many requests. Please wait a moment.";
+
+    try {
+      const data = await response.json();
+      if (data?.error) return data.error;
+    } catch (_) {
+      // ignore JSON parsing issues and fall through
+    }
+    return "Server error. Please try again.";
+  };
 
   // Fetch Messages Function
   const fetchMessages = async (beforeTimestamp = null) => {
@@ -47,9 +62,14 @@ function App() {
           hasMore: data.hasMore,
         };
       }
+
+      // Non-OK response
+      const errText = await parseErrorResponse(response);
+      setErrorBanner(errText);
       return { newMessages: [], hasMore: false };
     } catch (error) {
       console.error("Error loading history:", error);
+      setErrorBanner("Unable to load history. Please try again.");
       return { newMessages: [], hasMore: false };
     }
   };
@@ -150,7 +170,19 @@ function App() {
         body: JSON.stringify({ message: userText }),
       });
 
-      if (!response.ok) throw new Error("Server Error");
+      if (!response.ok) {
+        const errText = await parseErrorResponse(response);
+        setErrorBanner(errText);
+        const errorMessage = {
+          id: Date.now() + 1,
+          text: errText,
+          sender: "bot",
+          isError: true,
+        };
+        setMessages((prev) => [...prev, errorMessage]);
+        return;
+      }
+
       const data = await response.json();
 
       const botMessage = {
@@ -161,9 +193,11 @@ function App() {
       };
       setMessages((prev) => [...prev, botMessage]);
     } catch (error) {
+      const errorText = "Unable to reach server. Please check your connection.";
+      setErrorBanner(errorText);
       const errorMessage = {
         id: Date.now() + 1,
-        text: "Error connecting to server.",
+        text: errorText,
         sender: "bot",
         isError: true,
       };
@@ -186,6 +220,17 @@ function App() {
           </div>
           <FiMessageSquare className="header-icon" />
         </header>
+
+        {/* Error Banner */}
+        {errorBanner && (
+          <div className="error-banner">
+            <div className="error-text">
+              <FiAlertCircle />
+              <span>{errorBanner}</span>
+            </div>
+            <button onClick={() => setErrorBanner("")}>Dismiss</button>
+          </div>
+        )}
 
         {/* Added onScroll handler */}
         <div

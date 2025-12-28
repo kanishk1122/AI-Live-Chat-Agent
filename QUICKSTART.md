@@ -10,24 +10,14 @@
 
 ### Step 1: Install Dependencies
 
-**Windows:**
-```bash
-setup.bat
-```
 
-**Mac/Linux:**
-```bash
-chmod +x setup.sh
-./setup.sh
-```
 
-**Manual:**
 ```bash
 # Backend
 cd backend
 npm install
 
-# Frontend  
+# Frontend
 cd ../frontend
 npm install
 ```
@@ -36,6 +26,7 @@ npm install
 
 1. Open `backend/.env`
 2. Add your Gemini API key:
+
 ```env
 GEMINI_API_KEY=your_actual_api_key_here
 GEMINI_MODEL=gemini-2.5-flash-lite
@@ -46,6 +37,7 @@ MONGODB_URI=mongodb://localhost:27017/ai-chat-agent
 ### Step 3: Start MongoDB
 
 **Local MongoDB:**
+
 ```bash
 mongod
 ```
@@ -61,6 +53,7 @@ npm run dev
 ```
 
 You should see:
+
 ```
 ✅ Connected to MongoDB
 ✅ Server running on http://localhost:5000
@@ -70,12 +63,14 @@ You should see:
 ### Step 5: Start Frontend
 
 Open a new terminal:
+
 ```bash
 cd frontend
 npm run dev
 ```
 
 You should see:
+
 ```
   VITE vX.X.X  ready in XXX ms
 
@@ -91,6 +86,7 @@ Visit: **http://localhost:5173**
 ## Test the Agent
 
 Try these questions:
+
 - "What's your shipping policy?"
 - "How do I return an item?"
 - "What are your support hours?"
@@ -100,37 +96,43 @@ Try these questions:
 ### Backend won't start
 
 **Problem:** `GEMINI_API_KEY is missing`
+
 - **Solution:** Add your API key to `backend/.env`
 
 **Problem:** `MongoDB connection error`
+
 - **Solution:** Make sure MongoDB is running (`mongod` command)
 
 **Problem:** Port 5000 already in use
+
 - **Solution:** Change `PORT` in `backend/.env` to another port (e.g., 5001)
 
 ### Frontend can't connect
 
 **Problem:** Network error in console
+
 - **Solution:** Make sure backend is running on port 5000
 - **Solution:** Check if there are CORS errors - backend should allow `*` origin
 
 **Problem:** Page won't load
+
 - **Solution:** Make sure port 5173 isn't blocked by firewall
 
 ### History not loading
 
 **Problem:** Conversation history doesn't appear
+
 - **Solution:** Check MongoDB is running and accessible
 - **Solution:** Look at backend console for errors
 - **Solution:** Clear browser cache and reload
 
 ## What Happens Next?
 
-1. **First Visit:** 
+1. **First Visit:**
    - You see a welcome message
    - Your IP is registered when you send first message
-   
 2. **Send Messages:**
+
    - Messages are instantly displayed
    - AI responds within seconds
    - Everything is saved to database
@@ -172,6 +174,7 @@ AI Live Chat Agent/
 ## Production Deployment
 
 See the "Production Deployment" section in the main README.md for:
+
 - Deploying backend to Heroku/Railway
 - Deploying frontend to Vercel/Netlify
 - MongoDB Atlas setup
