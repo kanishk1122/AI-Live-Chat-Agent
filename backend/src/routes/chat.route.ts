@@ -2,7 +2,26 @@ import { Router, Request, Response, NextFunction } from "express";
 import Conversation from "../models/Conversation.model";
 import Message from "../models/Message..model";
 import ChatService from "../services/chat.service";
-import getClientIP from "../utils/ip";
+
+const SESSION_HEADER = "x-session-id";
+
+const normalizeSessionId = (
+  value: string | string[] | undefined
+): string | null => {
+  if (!value) return null;
+  const raw = Array.isArray(value) ? value[0] : value;
+  const cleaned = raw
+    .trim()
+    .slice(0, 64)
+    .replace(/[^a-zA-Z0-9_-]/g, "");
+  return cleaned || null;
+};
+
+const deriveConversationId = (req: Request): string | null => {
+  const sessionId = normalizeSessionId(req.headers[SESSION_HEADER]);
+  if (sessionId) return `session_${sessionId}`;
+  return null;
+};
 
 export const chatRoutes = (chatService: ChatService): Router => {
   const router = Router();
@@ -21,10 +40,19 @@ export const chatRoutes = (chatService: ChatService): Router => {
           return;
         }
 
-        const clientIP = getClientIP(req);
-        const conversationId = `ip_${clientIP}`;
+        const trimmedMessage = message.trim();
+        if (trimmedMessage.length === 0 || trimmedMessage.length > 1000) {
+          res.status(400).json({ error: "Message must be 1-1000 characters." });
+          return;
+        }
 
-        const reply = await chatService.getResponse(conversationId, message);
+        const conversationId =
+          deriveConversationId(req) || `anonymous_${Date.now()}`;
+
+        const reply = await chatService.getResponse(
+          conversationId,
+          trimmedMessage
+        );
 
         res.json({ reply, conversationId });
       } catch (error: any) {
@@ -44,8 +72,7 @@ export const chatRoutes = (chatService: ChatService): Router => {
     "/history",
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
-        const clientIP = getClientIP(req);
-        const conversationId = `ip_${clientIP}`;
+        const conversationId = deriveConversationId(req);
 
         const limit = parseInt(req.query.limit as string) || 20;
         const before = req.query.before as string;

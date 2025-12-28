@@ -30,6 +30,6 @@ const MessageSchema: Schema = new Schema({
 });
 
 // Create compound index for efficient querying
-MessageSchema.index({ conversationId: 1, timestamp: 1 });
+MessageSchema.index({ conversationId: 1, timestamp: -1 });
 
 export default mongoose.model<IMessage>("Message", MessageSchema);

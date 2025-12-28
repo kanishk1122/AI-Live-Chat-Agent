@@ -9,6 +9,22 @@ import {
 import "./App.css";
 
 function App() {
+  const API_BASE = "http://localhost:5000";
+  const SESSION_STORAGE_KEY = "ai-agent-session-id";
+
+  const generateSessionId = () =>
+    typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `sess-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+  const [sessionId, setSessionId] = useState(() => {
+    const existing = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (existing) return existing;
+    const generated = generateSessionId();
+    localStorage.setItem(SESSION_STORAGE_KEY, generated);
+    return generated;
+  });
+
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -23,6 +39,19 @@ function App() {
 
   // Ref to track scroll height to maintain position when loading old messages
   const scrollHeightRef = useRef(0);
+  const scrollThrottleRef = useRef(null);
+
+  // Merge messages without duplicates, ordered by timestamp ascending
+  const mergeMessages = (existing, incoming) => {
+    const byKey = new Map();
+    [...existing, ...incoming].forEach((msg) => {
+      const key = `${msg.id || msg.timestamp}-${msg.timestamp}`;
+      byKey.set(key, msg);
+    });
+    return Array.from(byKey.values()).sort(
+      (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+    );
+  };
 
   // Parse backend error payloads into a friendly, detailed string
   const parseErrorResponse = async (response) => {
@@ -44,17 +73,23 @@ function App() {
   // Fetch Messages Function
   const fetchMessages = async (beforeTimestamp = null) => {
     try {
-      let url = "http://localhost:5000/chat/history?limit=20";
+      let url = `${API_BASE}/chat/history?limit=20`;
       if (beforeTimestamp) {
         url += `&before=${beforeTimestamp}`;
       }
 
-      const response = await fetch(url);
+      const headers = sessionId
+        ? {
+            "x-session-id": sessionId,
+          }
+        : undefined;
+
+      const response = await fetch(url, { headers });
       if (response.ok) {
         const data = await response.json();
 
         const formattedMessages = data.messages.map((msg) => ({
-          id: msg.id || Math.random(), // Fallback ID if missing
+          id: msg.id || msg._id || `${msg.timestamp}-${msg.text.length}`,
           text: msg.text,
           sender: msg.sender === "user" ? "user" : "bot",
           timestamp: msg.timestamp,
@@ -105,6 +140,11 @@ function App() {
 
   // 2. Handle Scroll (Load Older)
   const handleScroll = async (e) => {
+    if (scrollThrottleRef.current) return;
+    scrollThrottleRef.current = setTimeout(() => {
+      scrollThrottleRef.current = null;
+    }, 150);
+
     const { scrollTop } = e.currentTarget;
 
     // If scrolled to top, has more data, and not currently fetching
@@ -122,7 +162,7 @@ function App() {
       );
 
       if (newMessages.length > 0) {
-        setMessages((prev) => [...newMessages, ...prev]);
+        setMessages((prev) => mergeMessages(prev, newMessages));
         setHasMore(moreAvailable);
       }
 
@@ -156,6 +196,11 @@ function App() {
 
     const userText = inputValue.trim();
 
+    if (userText.length > 1000) {
+      setErrorBanner("Message too long (max 1000 characters).");
+      return;
+    }
+
     const userMessage = {
       id: Date.now(),
       text: userText,
@@ -163,27 +208,50 @@ function App() {
       timestamp: new Date().toISOString(),
     };
 
+    const pendingBotId = `pending-${Date.now()}`;
+    const pendingBotMessage = {
+      id: pendingBotId,
+      text: "",
+      sender: "bot",
+      timestamp: new Date().toISOString(),
+      status: "pending",
+    };
+
     setMessages((prev) => [...prev, userMessage]);
     setInputValue("");
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://localhost:5000/chat/message", {
+      setMessages((prev) => [...prev, pendingBotMessage]);
+
+      const headers = {
+        "Content-Type": "application/json",
+        ...(sessionId ? { "x-session-id": sessionId } : {}),
+      };
+
+      const response = await fetch(`${API_BASE}/chat/message`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ message: userText }),
       });
 
       if (!response.ok) {
         const errText = await parseErrorResponse(response);
         setErrorBanner(errText);
-        const errorMessage = {
-          id: Date.now() + 1,
-          text: errText,
-          sender: "bot",
-          isError: true,
-        };
-        setMessages((prev) => [...prev, errorMessage]);
+        setInputValue(userText);
+
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === pendingBotId
+              ? {
+                  ...msg,
+                  text: errText,
+                  isError: true,
+                  status: "error",
+                }
+              : msg
+          )
+        );
         return;
       }
 
@@ -195,18 +263,27 @@ function App() {
         sender: "bot",
         timestamp: new Date().toISOString(),
       };
-      setMessages((prev) => [...prev, botMessage]);
+      setMessages((prev) =>
+        prev.map((msg) => (msg.id === pendingBotId ? botMessage : msg))
+      );
     } catch (error) {
       const detail = error instanceof Error ? error.message : "Unknown error";
       const errorText = `Unable to reach server. ${detail}`;
       setErrorBanner(errorText);
-      const errorMessage = {
-        id: Date.now() + 1,
-        text: errorText,
-        sender: "bot",
-        isError: true,
-      };
-      setMessages((prev) => [...prev, errorMessage]);
+      setInputValue(userText);
+
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === pendingBotId
+            ? {
+                ...msg,
+                text: errorText,
+                isError: true,
+                status: "error",
+              }
+            : msg
+        )
+      );
     } finally {
       setIsLoading(false);
     }
@@ -276,7 +353,11 @@ function App() {
                       {msg.isError && (
                         <FiAlertCircle style={{ marginRight: "8px" }} />
                       )}
-                      {msg.text}
+                      {msg.status === "pending" ? (
+                        <div className="typing-dot" />
+                      ) : (
+                        msg.text
+                      )}
                     </div>
                     <span className="timestamp">
                       {new Date(msg.timestamp).toLocaleTimeString([], {
@@ -288,7 +369,7 @@ function App() {
                 </div>
               ))}
 
-              {isLoading && (
+              {isLoading && !messages.some((m) => m.status === "pending") && (
                 <div className="message-group bot-group">
                   <div className="avatar">
                     <FiCpu />

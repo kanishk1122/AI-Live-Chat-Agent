@@ -25,6 +25,31 @@ export class ChatService {
     });
   }
 
+  // Rough token estimate to keep requests under model limits
+  private estimateTokens(text: string): number {
+    return Math.ceil(text.length / 4);
+  }
+
+  private trimHistoryForBudget(history: Content[], maxTokens = 200): Content[] {
+    type QueueItem = { item: Content; tokens: number };
+    const queue: QueueItem[] = [];
+    let total = 0;
+
+    for (const item of history) {
+      const text = item.parts?.map((p: any) => p?.text || "").join(" ") || "";
+      const tokens = this.estimateTokens(text);
+      queue.push({ item, tokens });
+      total += tokens;
+
+      while (total > maxTokens && queue.length > 0) {
+        const removed = queue.shift();
+        total -= removed?.tokens || 0;
+      }
+    }
+
+    return queue.map((q) => q.item);
+  }
+
   private async loadHistoryFromDB(conversationId: string): Promise<Content[]> {
     const messages = await Message.find({ conversationId })
       .sort({ timestamp: 1 })
@@ -59,8 +84,10 @@ export class ChatService {
 
       const history = await this.loadHistoryFromDB(conversationId);
 
+      const budgetedHistory = this.trimHistoryForBudget(history);
+
       const chat = this.model.startChat({
-        history,
+        history: budgetedHistory,
         generationConfig: {
           maxOutputTokens: 1000,
         },
