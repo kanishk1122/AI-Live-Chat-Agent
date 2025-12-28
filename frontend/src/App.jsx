@@ -9,9 +9,10 @@ import {
 import "./App.css";
 
 function App() {
-  const API_BASE = "http://localhost:5000";
+  const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
   const SESSION_STORAGE_KEY = "ai-agent-session-id";
 
+  console.log("Current API URL:", import.meta.env.VITE_API_URL);
   const generateSessionId = () =>
     typeof crypto !== "undefined" && crypto.randomUUID
       ? crypto.randomUUID()
