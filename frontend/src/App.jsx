@@ -78,7 +78,8 @@ function App() {
 
   const parseErrorResponse = async (response) => {
     const statusInfo = `${response.status} ${response.statusText || ""}`.trim();
-    if (response.status === 429) return "Too many requests. Please wait a moment.";
+    if (response.status === 429)
+      return "Too many requests. Please wait a moment.";
     try {
       const data = await response.json();
       if (data?.error) return data.error;
@@ -106,12 +107,12 @@ function App() {
         }));
         return { newMessages: formattedMessages, hasMore: data.hasMore };
       }
-      
+
       // If error (and server was thought to be awake), might have slept
       if (response.status === 502 || response.status === 503) {
         setServerStatus("sleeping");
       }
-      
+
       return { newMessages: [], hasMore: false };
     } catch (error) {
       console.error("Fetch error:", error);
@@ -210,7 +211,7 @@ function App() {
       }
 
       const data = await response.json();
-      
+
       // Replace pending message with real one
       setMessages((prev) =>
         prev.map((msg) =>
@@ -258,16 +259,21 @@ function App() {
   // 2. Infinite Scroll
   const handleScroll = async (e) => {
     if (scrollThrottleRef.current) return;
-    scrollThrottleRef.current = setTimeout(() => (scrollThrottleRef.current = null), 200);
+    scrollThrottleRef.current = setTimeout(
+      () => (scrollThrottleRef.current = null),
+      200
+    );
 
     const { scrollTop } = e.currentTarget;
     if (scrollTop === 0 && hasMore && !isLoadingOlder) {
       setIsLoadingOlder(true);
       scrollHeightRef.current = messageListRef.current.scrollHeight;
-      
+
       const oldestTimestamp = messages[0]?.timestamp;
-      const { newMessages, hasMore: more } = await fetchMessages(oldestTimestamp);
-      
+      const { newMessages, hasMore: more } = await fetchMessages(
+        oldestTimestamp
+      );
+
       if (newMessages.length > 0) {
         setMessages((prev) => mergeMessages(prev, newMessages));
         setHasMore(more);
@@ -279,7 +285,7 @@ function App() {
   // 3. Maintain Scroll Position
   useLayoutEffect(() => {
     if (!messageListRef.current) return;
-    
+
     if (isLoadingOlder) {
       const newHeight = messageListRef.current.scrollHeight;
       const diff = newHeight - scrollHeightRef.current;
@@ -311,11 +317,13 @@ function App() {
   return (
     <div className="app-wrapper">
       <div className="chat-widget">
-        
         {/* Header */}
         <header className="chat-header">
           <div className="header-info">
-            <div className="status-dot" style={{ backgroundColor: getStatusColor() }}></div>
+            <div
+              className="status-dot"
+              style={{ backgroundColor: getStatusColor() }}
+            ></div>
             <div>
               <h3>AI Support</h3>
               <p className="status-text">{getStatusText()}</p>
@@ -334,9 +342,9 @@ function App() {
         )}
 
         {/* Chat Area */}
-        <div 
-          className="messages-area" 
-          ref={messageListRef} 
+        <div
+          className="messages-area"
+          ref={messageListRef}
           onScroll={handleScroll}
         >
           {/* SCENARIO 1: Server is Sleeping or Waking */}
@@ -351,13 +359,13 @@ function App() {
               </div>
               <h4>Server is Sleeping</h4>
               <p>
-                {serverStatus === "waking" 
-                  ? wakeMessage 
+                {serverStatus === "waking"
+                  ? wakeMessage
                   : "To save resources, the backend sleeps when idle. Please wake it up to chat."}
               </p>
-              <button 
-                className="wake-btn" 
-                onClick={wakeServer} 
+              <button
+                className="wake-btn"
+                onClick={wakeServer}
                 disabled={serverStatus === "waking"}
               >
                 {serverStatus === "waking" ? "Waking Up..." : "Wake Server"}
@@ -374,31 +382,44 @@ function App() {
 
               {isInitialLoading ? (
                 <div className="loading-state">
-                   <div className="spinner"></div>
-                   <p>Connecting...</p>
+                  <div className="spinner"></div>
+                  <p>Connecting...</p>
                 </div>
               ) : (
                 messages.map((msg) => (
                   <div
                     key={msg.id}
-                    className={`message-group ${msg.sender === "user" ? "user-group" : "bot-group"}`}
+                    className={`message-group ${
+                      msg.sender === "user" ? "user-group" : "bot-group"
+                    }`}
                   >
                     <div className="avatar">
                       {msg.sender === "user" ? <FiUser /> : <FiCpu />}
                     </div>
                     <div className="message-content">
-                      <div className={`bubble ${msg.sender} ${msg.isError ? "error" : ""}`}>
-                         {msg.isError && <FiAlertCircle style={{marginRight: 6}}/>} 
-                         {msg.status === "pending" ? (
-                           <div className="typing-indicator">
-                             <span></span><span></span><span></span>
-                           </div>
-                         ) : (
-                           msg.text
-                         )}
+                      <div
+                        className={`bubble ${msg.sender} ${
+                          msg.isError ? "error" : ""
+                        }`}
+                      >
+                        {msg.isError && (
+                          <FiAlertCircle style={{ marginRight: 6 }} />
+                        )}
+                        {msg.status === "pending" ? (
+                          <div className="typing-indicator">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                          </div>
+                        ) : (
+                          msg.text
+                        )}
                       </div>
                       <span className="timestamp">
-                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(msg.timestamp).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </span>
                     </div>
                   </div>
@@ -409,28 +430,34 @@ function App() {
         </div>
 
         {/* Input Area */}
-        <div className={`input-area ${serverStatus !== "awake" ? "disabled" : ""}`}>
+        <div
+          className={`input-area ${serverStatus !== "awake" ? "disabled" : ""}`}
+        >
           <form className="input-form" onSubmit={handleSendMessage}>
             <input
               type="text"
               value={inputValue}
-              onChange={(e) => e.target.value.length < 1000 && setInputValue(e.target.value)}
-              placeholder={serverStatus === "awake" ? "Type your question..." : "Waiting for server..."}
+              onChange={(e) =>
+                e.target.value.length < 1000 && setInputValue(e.target.value)
+              }
+              placeholder={
+                serverStatus === "awake"
+                  ? "Type your question..."
+                  : "Waiting for server..."
+              }
               disabled={isLoading || serverStatus !== "awake"}
-
             />
-              <div className="char-count">
-                {inputValue.length}/1000
-                {inputValue.length < 1000 && (
-                  <span className="char-remaining">
-                    {1000 - inputValue.length} characters remaining
-                  </span>
-            )}
-              </div>
-            
+            <div className="char-count">
+              <span className="char-remaining">
+                {1000 - inputValue.length} characters remaining
+              </span>
+            </div>
+
             <button
               type="submit"
-              disabled={isLoading || serverStatus !== "awake" || !inputValue.trim()}
+              disabled={
+                isLoading || serverStatus !== "awake" || !inputValue.trim()
+              }
               className={inputValue.trim() ? "active" : ""}
             >
               <FiSend />
@@ -438,7 +465,6 @@ function App() {
           </form>
           <div className="branding">Powered by AI Agent</div>
         </div>
-
       </div>
     </div>
   );
